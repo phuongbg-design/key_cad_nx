@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tạo Key — Phương Bg</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f1117; color: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; }
+    .card { background: #191e2a; border: 1px solid #2e3749; border-radius: 14px; padding: 22px; width: 100%; max-width: 420px; }
+    h2 { margin: 0 0 6px; color: #38bdf8; font-size: 19px; }
+    p { margin: 0 0 18px; color: #94a3b8; font-size: 13px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f1117; color: #38bdf8; font-family: monospace; font-size: 15px; font-weight: bold; outline: none; margin-bottom: 14px; text-transform: uppercase; }
+    .key-box { color: #10b981; background: #141821; border-color: #10b981; }
+    .btn-row { display: flex; gap: 10px; }
+    button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
+    .btn-gen { background: #10b981; color: #fff; }
+    .btn-copy { background: #38bdf8; color: #0b1120; }
+    .msg { margin-top: 12px; font-size: 13px; text-align: center; min-height: 18px; color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>TẠO KEY — PHƯƠNG BG</h2>
+    <p>Hỗ trợ Siemens NX (NX-) & AutoCAD 2D (YX-)</p>
+
+    <label>Nhập Mã Máy của khách:</label>
+    <input type="text" id="mid" placeholder="NX-73E6-6DA5-56CF" oninput="taoKey()">
+
+    <label>Key kích hoạt:</label>
+    <input type="text" id="keyOut" class="key-box" readonly placeholder="Key tự hiện ở đây...">
+
+    <div class="btn-row">
+      <button class="btn-gen" onclick="taoKey()">Tạo Key</button>
+      <button class="btn-copy" onclick="copyKey()">Copy Key</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script>
+    // ================= THÔNG SỐ CẤU HÌNH =================
+    const NX_APP_ID = "NX_VN_STUDIO_3D_PRO";
+    const NX_SECRET = "NXVN#3D_MOLD_2026!PhuongBg@SiemensNX_KeyOnly_94F7";
+
+    // Điền thông số AutoCAD 2D vào đây nếu dùng chung:
+    const YX_APP_ID = "DIEN_APP_ID_AUTOCAD_VAO_DAY";
+    const YX_SECRET = "DIEN_SECRET_KEY_AUTOCAD_VAO_DAY";
+    // =====================================================
+
+    // Thuật toán SHA-256 & HMAC-SHA256 thuần JS (chạy Offline 100% trên mọi điện thoại)
+    function sha256Bytes(ascii) {
+      function rightRotate(v, amount) { return (v >>> amount) | (v << (32 - amount)); }
+      const mathPow = Math.pow, maxWord = mathPow(2, 32);
+      let i, j, result = [];
+      const words = [], asciiBitLength = ascii.length * 8;
+      const hash = [], k = [];
+      let primeCounter = 0, isComposite = {};
+      for (let candidate = 2; primeCounter < 64; candidate++) {
+        if (!isComposite[candidate]) {
+          for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+          hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+          k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+        }
+      }
+      ascii += '\x80';
+      while (ascii.length % 64 - 56) ascii += '\x00';
+      for (i = 0; i < ascii.length; i++) {
+        j = ascii.charCodeAt(i);
+        words[i >> 2] |= j << ((3 - i) % 4) * 8;
+      }
+      words[words.length] = ((asciiBitLength / maxWord) | 0);
+      words[words.length] = (asciiBitLength);
+      for (j = 0; j < words.length;) {
+        const w = words.slice(j, j += 16), oldHash = hash.slice(0);
+        for (i = 0; i < 64; i++) {
+          const w15 = w[i - 15], w2 = w[i - 2];
+          const a = hash[0], e = hash[4];
+          const temp1 = hash[7] + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] +
+            (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) | 0);
+          const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+          hash.unshift((temp1 + temp2) | 0);
+          hash[4] = (hash[4] + temp1) | 0;
+          hash.pop();
+        }
+        for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+      }
+      for (i = 0; i < 8; i++) {
+        for (j = 3; j + 1; j--) result.push((hash[i] >> (j * 8)) & 255);
+      }
+      return result;
+    }
+
+    function hmacSha256Hex(keyStr, msgStr) {
+      const encoder = new TextEncoder();
+      let keyBytes = Array.from(encoder.encode(keyStr));
+      const msgBytes = Array.from(encoder.encode(msgStr));
+      const toBinStr = arr => arr.map(b => String.fromCharCode(b)).join("");
+      if (keyBytes.length > 64) keyBytes = sha256Bytes(toBinStr(keyBytes));
+      while (keyBytes.length < 64) keyBytes.push(0);
+      const oPad = keyBytes.map(b => b ^ 0x5c);
+      const iPad = keyBytes.map(b => b ^ 0x36);
+      const inner = sha256Bytes(toBinStr(iPad) + toBinStr(msgBytes));
+      const outer = sha256Bytes(toBinStr(oPad) + toBinStr(inner));
+      return outer.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    }
+
+    function taoKey() {
+      const raw = document.getElementById("mid").value;
+      const mid = raw.toUpperCase().replace(/[^A-Z0-9-]/g, "").trim();
+      const out = document.getElementById("keyOut");
+      const msg = document.getElementById("msg");
+
+      if (mid.length < 10) {
+        out.value = "";
+        msg.textContent = "";
+        return;
+      }
+
+      let appId, secret, prefix, label;
+      if (mid.startsWith("NX-")) {
+        appId = NX_APP_ID; secret = NX_SECRET; prefix = "NX"; label = "Siemens NX 3D";
+      } else if (mid.startsWith("YX-")) {
+        appId = YX_APP_ID; secret = YX_SECRET; prefix = "YX"; label = "AutoCAD 2D";
+      } else {
+        out.value = "";
+        msg.style.color = "#fbbf24";
+        msg.textContent = "Mã Máy phải bắt đầu bằng NX- hoặc YX-";
+        return;
+      }
+
+      const hex = hmacSha256Hex(secret, `${appId}|${mid}`);
+      out.value = `${prefix}-${hex.slice(0,4)}-${hex.slice(4,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}`;
+      msg.style.color = "#38bdf8";
+      msg.textContent = `Đã tạo Key chuẩn ${label}`;
+    }
+
+    function copyKey() {
+      const out = document.getElementById("keyOut");
+      if (!out.value) return;
+      out.select();
+      out.setSelectionRange(0, 99999);
+      document.execCommand("copy");
+      const msg = document.getElementById("msg");
+      msg.style.color = "#10b981";
+      msg.textContent = "✅ Đã Copy Key!";
+    }
+  </script>
+</body>
+</html>
